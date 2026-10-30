@@ -1,0 +1,8 @@
+{
+  "name": "Настолки — платформа игр",
+  "description": "Telegram Mini App оболочки платформы «Настолки» для сбора компании, выбора игр и оплаты партий.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

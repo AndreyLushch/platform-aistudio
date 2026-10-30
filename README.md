@@ -1,11 +1,141 @@
-<div align="center">
+# Платформа «Настолки» — Telegram Mini App
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Интерактивный прототип **оболочки платформы «Настолки»** для живой компании в групповом чате Telegram. Платформа организует сбор компании за столом, вход по QR-коду, выбор настолки из каталога, расчёт стоимости по текущему числу игроков, оплату жетонами за Telegram Stars, запуск партии и подведение итогов.
 
-  <h1>Built with AI Studio</h2>
+---
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## 1. Стек и архитектура
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+- **Фреймворк**: React 19 + TypeScript + Vite + Tailwind CSS v4.
+- **Иконки**: `lucide-react`.
+- **Без сторонних UI-китов**: чистый кастомный дизайн без shadcn/MUI.
+- **Ширина экрана**: телефонный портрет 360–430 px, адаптирован под узкие экраны вплоть до 320 px без горизонтального скролла.
+- **Шрифты**: локальный системный стек с поддержкой кириллицы (без CDN и Google Fonts).
+- **Размер текста**: строго не мельче 13 px во всём интерфейсе.
+- **Зоны нажатия**: от 48 px в высоту.
 
-</div>
+---
+
+## 2. Карта экранов: Экран × Ракурс → Компонент
+
+| Экран | Ракурс / Состояние | Компонент | `data-testid` |
+|---|---|---|---|
+| **Система** | Вход вне Telegram (браузер) | `NoTelegramScreen` | `platform-screen-no-telegram` |
+| **Система** | Личный диалог с ботом | `PrivateChatScreen` | `platform-screen-private` |
+| **Система** | Нет подписки на канал проекта | `SubscribeScreen` | `platform-screen-subscribe` |
+| **Система** | Ошибка сети или техработы | `ErrorScreen` | `platform-screen-error` |
+| **G1. Сбор игроков** | Обычный игрок в комнате | `GatheringScreen` | `platform-screen-gathering` |
+| **G1. Сбор игроков** | Ведущий с короной | `GatheringScreen` | `platform-screen-gathering` |
+| **G1. Сбор игроков** | Наблюдатель (не вошёл в комнату) | `GatheringScreen` | `platform-screen-gathering` |
+| **G1. Сбор игроков** | Кнопка «Все на месте» | `GatheringScreen` | `platform-btn-all-gathered` |
+| **G1. Сбор игроков** | QR-код и ссылка | `QRCodeCard` | `platform-qr-code` |
+| **G2. Выбор игры** | Каталог с карточками игр | `GameSelectScreen` | `platform-screen-game-select` |
+| **G2. Выбор игры** | Карточка конкретной игры | `GameCard` | `platform-game-<id>` |
+| **G2. Выбор игры** | Кнопка пополнения на карточке | `GameCard` | `platform-btn-topup` |
+| **G3. Лобби** | Ведущий (готов к старту) | `LobbyScreen` | `platform-screen-lobby` |
+| **G3. Лобби** | Кнопка старта партии | `LobbyScreen` | `platform-btn-start-game` |
+| **G3. Лобби** | Кнопка отмены игры | `LobbyScreen` | `platform-btn-cancel-game` |
+| **G3. Лобби** | Обычный игрок («Ждём ведущего») | `LobbyScreen` | `platform-screen-lobby` |
+| **G3. Лобби** | Ведущий пропал («Стать ведущим») | `LobbyScreen` | `platform-btn-claim-host` |
+| **G3. Лобби** | Наблюдатель («Присоединиться») | `LobbyScreen` | `platform-btn-join-room` |
+| **G4. Партия** | Узкая рамка платформы + Слот | `PartyScreen` + `GameSlot` | `platform-screen-party` |
+| **G4. Партия** | Кнопка «Выйти из игры» | `PartyScreen` | `platform-btn-leave-game` |
+| **G5. Итоги** | Подиум и результаты партии | `FinishedScreen` | `platform-screen-finished` |
+| **G5. Итоги** | «Играть ещё раз» | `FinishedScreen` | `platform-btn-play-again` |
+| **G5. Итоги** | «Выбрать другую игру» | `FinishedScreen` | `platform-btn-choose-another` |
+| **Лист** | Пополнение баланса Stars | `TopupSheet` | `platform-package-<id>` |
+| **Лист** | Пригласить (QR и ссылка) | `InviteSheet` | — |
+| **Лист** | Настройки (тема, вибро, стиль) | `SettingsSheet` | `platform-settings-open` |
+| **Окно** | «Комната опустела» | `ReentryModal` | — |
+| **Окно** | «Выйти из игры?» | `LeaveConfirmModal` | — |
+| **Окно** | «Оплатить игру?» | `PayConfirmModal` | — |
+| **Окно** | «Отменить игру?» | `CancelGameModal` | — |
+
+---
+
+## 3. Список фикстур в DevPanel
+
+1. **`g1_gathering_member`** — G1 Сбор: Обычный игрок в комнате.
+2. **`g1_gathering_host`** — G1 Сбор: Ведущий с короной.
+3. **`g1_gathering_guest`** — G1 Сбор: Наблюдатель (не вошёл в комнату).
+4. **`g1_no_qr`** — G1 Крайний случай: `joinUrl: null` (заглушка «QR недоступен»).
+5. **`g1_30_players`** — G1 Крайний случай: Большая вечеринка из 30 человек за столом.
+6. **`g2_catalog_normal`** — G2 Каталог: стандартный выбор игры, баланс достаточен.
+7. **`g2_zero_balance`** — G2 Крайний случай: 0 жетонов на балансе (платные закрыты замком, квиз доступен).
+8. **`g2_too_few_players`** — G2 Крайний случай: мало игроков (2 чел. — Угадайка и Бункер заблокированы).
+9. **`g3_lobby_host_ready`** — G3 Лобби: Ведущий, игроков хватает, кнопка «Начать игру» активна.
+10. **`g3_lobby_host_few_players`** — G3 Лобби: Ведущий, не хватает игроков («Нужно минимум 6, сейчас 4»).
+11. **`g3_lobby_player`** — G3 Лобби: Обычный игрок ждёт запуска ведущим.
+12. **`g3_lobby_host_away`** — G3 Лобби: Ведущий пропал (~1,5 мин не на связи) → кнопка «Стать ведущим».
+13. **`g3_price_changed`** — G3 Крайний случай: «Цена изменилась» из-за изменения числа участников.
+14. **`g4_party_guesser`** — G4 Партия: Слот игры «Угадайка» (Fiesta).
+15. **`g4_party_gangsters`** — G4 Партия: Слот игры «Гангстеры» (Noir Comic).
+16. **`g5_finished_host`** — G5 Итоги: Результаты игры без своего финала («Квиз Экспресс»).
+17. **`sys_no_telegram`** — Системный экран: запуск вне Telegram.
+18. **`sys_private_chat`** — Системный экран: запуск в личном диалоге с ботом.
+19. **`sys_no_subscription`** — Системный экран: проверка подписки на канал проекта.
+20. **`sys_network_error`** — Системный экран: сбой сети с кнопкой повтора.
+21. **`sys_reentry_needed`** — Диалог: «Комната опустела: Продолжить / Начать новую».
+22. **`sys_latecomer_game_in_progress`** — Крайний случай: вход опоздавшего, когда партия уже идёт.
+
+---
+
+## 4. Стили оформления и токены темы
+
+В DevPanel и настройках доступны **3 варианта стиля** платформы:
+
+1. **«Тёплый вечер» (`cozy`) — Основной стиль по умолчанию**:
+   - Настроение: вечер настолок с друзьями, тёплый янтарь, терракота, дерево.
+   - Акцент: `bg-amber-600` (Light) / `bg-amber-500` (Dark).
+   - Карточки: мягкие янтарные полупрозрачные плашки `bg-amber-50/50`.
+2. **«Праздник» (`fiesta`)**:
+   - Настроение: динамичная яркая игровая вечеринка.
+   - Акцент: сочный коралл и роза `bg-rose-600`.
+3. **«Нео-аркада» (`arcade`)**:
+   - Настроение: лаконичный технологичный стиль с матовыми гранями.
+   - Акцент: индиго и фиолетовый `bg-indigo-600`.
+
+### Тема (Светлая и Тёмная)
+- **Светлая тема**: чистый мягкий фон `#f4f5f8`, белые карточки, высокая читаемость контрастного текста `text-neutral-900`.
+- **Тёмная тема**: глубокий графит `#0a0a0d`, карточки `bg-neutral-900/90`, текст `text-neutral-100`.
+- По умолчанию: «Как в Telegram» (синхронизировано со светлой темой браузера/ОС).
+
+---
+
+## 5. Места-заглушки для иллюстраций
+
+Если в будущем проекте подключаются графические иллюстрации, для них подготовлены стандартизированные контейнеры:
+1. `sys_no_telegram` — Иллюстрация «Открой Telegram на телефоне».
+2. `sys_private_chat` — Иллюстрация «Компания друзей за столом вокруг телефона».
+3. `g1_gathering` — Заставка в центре QR-кода и иконки статуса стола.
+4. `g4_party` — Выделенный слот игры `GameSlot` (сейчас рендерит заглушки «Угадайка», «Гангстеры» или нейтральный каркас).
+5. `g5_finished` — Пьедестал почёта и кубок победителя.
+
+---
+
+## 6. Предложения сверх контракта (Раздел 9)
+
+| Предложение | Зачем нужно пользователям | Необходимые поля в данных (`PlatformView`) | Новые команды (`PlatformCommand`) |
+|---|---|---|---|
+| **Складчина на партию (Crowdfunding)** | Снижает барьер оплаты дорогих игр для одного человека: компания может скинуться жетонами поровну. | `room.crowdfund: { targetTokens: number; collectedTokens: number; contributors: { playerId: string; tokens: number }[] }` | `{ type: 'CONTRIBUTE_TOKENS'; tokens: number }`, `{ type: 'INIT_CROWDFUND' }` |
+| **История партий чата** | Сохраняет совместные воспоминания компании, показывает даты, лучших игроков и длительность. | `chatHistory: Array<{ id: string; gameTitle: string; endedAt: string; winnerName: string; durationMin: number }>` | `{ type: 'OPEN_CHAT_HISTORY' }` |
+| **Сезонная лига компании** | Подогревает интерес к регулярным встречам, начисляет баллы за призовые места в корпоративах. | `leaderboard: Array<{ rank: number; playerId: string; playerName: string; winsCount: number; points: number }>` | `{ type: 'VIEW_LEADERBOARD' }` |
+| **Экспресс-онбординг** | Быстро знакомит новичка с правилами за 10 секунд при первом входе. | `user.isFirstLaunch?: boolean` | `{ type: 'COMPLETE_ONBOARDING' }` |
+
+---
+
+## 7. Сборка и запуск
+
+```bash
+# Установка зависимостей
+npm install
+
+# Запуск локального dev-сервера
+npm run dev
+
+# Проверка сборки TypeScript и Vite
+npm run build
+
+# Запуск модульных тестов логики (Node.js test runner)
+npx --yes tsx --test src/engine/pricing.test.ts
+```
